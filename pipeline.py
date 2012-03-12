@@ -14,6 +14,7 @@
 """
 import sys
 import os
+import glob
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
@@ -427,110 +428,106 @@ if __name__ == '__main__':
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
 #       Put pipeline code here
-bam_file = os.path.abspath(options.bam_file)
+# bam_file = os.path.abspath(options.bam_file)
 # prefix to use during the runs will be the basename of the file minus extension
-prefix = os.path.splitext(os.path.basename(bam_file))[0]
+# prefix = os.path.splitext(os.path.basename(bam_file))[0]
 
+def generate_parameters():
+    files = glob.glob(options.bam_file)
+    parameters = []
+    for file in files:
+        prefix = os.path.splitext(os.path.basename(file))[0]
+        parameters.append([None,prefix + '/' + prefix + '.bam', [prefix,os.path.abspath(file)]])
+    for job_parameters in parameters:
+            yield job_parameters
 
-@files(None, prefix + '.bam')
-def link(none, link):
+@files(generate_parameters)
+def link(none, bam, extra):
     """Make working directory, chdir and make symlink to bam file"""
-    if not os.path.exists(prefix):
-        os.mkdir(prefix)
-    os.chdir(prefix)
-    if not os.path.exists(prefix + '.bam'):
-        os.symlink(bam_file, link) 
+    if not os.path.exists(extra[0]):
+        os.mkdir(extra[0])
+    if not os.path.exists(bam):
+        os.symlink(extra[1], bam) 
 
 @follows(link)
-@files(prefix + '.bam', prefix + '.bam.bai')
-def index(bam, index):
+@transform(link, suffix(".bam"), '.bam.bai')
+def index(input, output):
     """create bam index"""
-    index_bam(bam)
+    index_bam(input)
 
 @follows(index)
-@files(prefix + '.bam', prefix + '.realign.intervals')
+@transform(link, suffix(".bam"), '.realign.intervals')
 def find_realignment_intervals(bam,output):
    """Find regions to be re-aligned due to indels"""
    find_realigns(bam, output)
 
 @follows(find_realignment_intervals)
-@files(prefix + '.realign.intervals', prefix + '.realigned.bam', prefix + '.bam')
-def indel_realigner(intervals_file,realigned_bam,bam):
+@transform(find_realignment_intervals, suffix(".realign.intervals"), '.realigned.bam', r'\1.bam')
+def indel_realigner(input, output, bam):
    """Re-aligns regions around indels"""
-   run_realigner(bam,intervals_file,realigned_bam)
+   run_realigner(bam,input,output)
 
 @follows(indel_realigner)
-# @follows(index)
-@files(prefix + '.realigned.bam', prefix + '.rmdup.bam')
-# @files(prefix + '.bam', prefix + '.rmdup.bam')
-def remove_dups(bam, output):
+@transform(indel_realigner, suffix(".realigned.bam"), '.rmdup.bam')
+def remove_dups(input, output):
     """Remove dups"""
-    #dup_removal_picard(bam, output)
-    dup_removal_samtools(bam, output)
+    dup_removal_samtools(input, output)
 
 @follows('remove_dups')
-@files(prefix + '.rmdup.bam', prefix + '.gatk.bam.recal_data.csv')
-def recalibrate_baseq1(bam, recal_data):
+@transform(remove_dups, suffix('.rmdup.bam'), '.gatk.bam.recal_data.csv')
+def recalibrate_baseq1(input, output):
     """Base quality score recalibration in bam file
         Part 1: count covariates"""
-    index_bam(bam)
-    count_covariates(bam, recal_data)
+    index_bam(input)
+    count_covariates(input, output)
 
 @follows(recalibrate_baseq1)
-@files(prefix + '.gatk.bam.recal_data.csv', prefix + '.gatk.bam', prefix + '.rmdup.bam')
-def recalibrate_baseq2(recal_data, output, bam):
+@transform(remove_dups, suffix('.rmdup.bam'), add_inputs(r'\1.gatk.bam.recal_data.csv'),'.gatk.bam')
+def recalibrate_baseq2(inputs, output):
     """Base quality score recalibration in bam file
         Part 2: rewrite quality scores into a new bam file"""   
-    table_recalibration(bam, recal_data, output)
+    table_recalibration(inputs[0], inputs[1], output)
 
 @follows('recalibrate_baseq2')
-@files(prefix + '.gatk.bam', prefix + '.bcf')
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.bcf')
 def call_snps(bam, bcf):
     """Call snps on the data, using samtools"""
     snp_call_mpileup(bam, bcf)
 
-# @follows('call_snps')
-# @files(prefix + '.snp.raw', prefix + '.snp.vcf_temp', prefix + '.indel.vcf')
-# def convert_to_vcf(snpcalls, snps, indels):
-#     """Convert pileup file to vcf and filter it
-#         Outputs two vcs, one with snps and one with indels"""
-#     bcf_to_vcf(snpcalls,snps,indels)
-
 @follows('call_snps')
-@files(prefix + '.bcf', prefix + '.snp.vcf')
+@transform(call_snps, suffix('.bcf'), '.snp.vcf')
 def snps_to_vcf(bcf, vcf):
     """Converts bcf files to snp vcf"""
     bcf_to_snp(bcf,vcf)
 
 @follows('call_snps')
-@files(prefix + '.bcf', prefix + '.indel.vcf')
+@transform(call_snps, suffix('.bcf'), '.indel.vcf')
 def indels_to_vcf(bcf, indel):
     """Converts bcf files to vcf, only indels"""
     bcf_to_indels(bcf, indel)
 
 @follows('snps_to_vcf')
-@files(prefix + '.snp.vcf', prefix + '.snp.recode.vcf')
-def filter_snps(vcf, snps):
+@transform(snps_to_vcf, suffix('.snp.vcf'), '.snp.recode.vcf',r'\1.snp')
+def filter_snps(vcf, snps,extra):
     """Use vcftools for filtering the vcf output"""
-    snp_filter(vcf, prefix + '.snp')
+    snp_filter(vcf, extra)
 
 @follows('indels_to_vcf')
-@files(prefix + '.indel.vcf', prefix + '.indel')
-def filter_indels(vcf, indel_calls):
+@transform(indels_to_vcf, suffix('.indel.vcf'), '.snp.recode.vcf',r'\1.indel')
+def filter_indels(vcf, indel_calls,extra):
     """Use vcftools for filtering the vcf output, indels"""
-    indel_filter(vcf, prefix + '.indel', indel_calls)
-
+    indel_filter(vcf, extra, indel_calls)
 
 @follows('recalibrate_baseq2')
-@files(prefix + '.gatk.bam', prefix + '.gatk.bam.bai')
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.gatk.bam.bai')
 def index2(bam, index):
     index_bam(bam)
 
 @follows('filter_snps')
-@files(prefix + '.snp.recode.vcf', prefix + '.snps', prefix + '.gatk.bam')
-def annotate_vcf(vcf, annotated_vcf, bam):
+@transform(filter_snps, suffix('.snp.recode.vcf'), add_inputs(r'\1.gatk.bam'), '.snps')
+def annotate_vcf(inputs, annotated_vcf):
     """Annotates snp vcf file"""
-    annotate_vcf_gatk(vcf, bam, annotated_vcf)
+    annotate_vcf_gatk(inputs[0], inputs[1], annotated_vcf)
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
