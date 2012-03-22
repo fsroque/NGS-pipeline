@@ -134,7 +134,8 @@ if (exons.less_than_minimum.covered > 0) {
             genes <- append(genes, as.vector(transcripts_to_genes$hgnc[transcripts_to_genes$transcript==transcript]))
         }
         genes <- unique(na.omit(genes[genes != "NA"]))
-        chromosome <- results[i,][1]
+        # chromosome <- results[i,][1]
+		chromosome <- chr
         chromstart <- results[i,][2]
         chromend <- results[i,][3]
 
