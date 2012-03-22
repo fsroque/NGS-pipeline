@@ -8,7 +8,7 @@ suppressMessages(require(GenomicFeatures,quiet=TRUE))
 suppressMessages(require(GenomicRanges,quiet=TRUE))
 suppressMessages(require(SynergizeR,quiet=TRUE))
 
-VERSION <- '1.0'
+VERSION <- '1.1-Mar2012'
 
 createBamIndex <- function
 ### creates index for bam file if it does not exist
@@ -69,8 +69,9 @@ createBamIndex(bam)
 bamRegion <- getSpecificRegion(chr,start,end,bam)
 
 # txdb <- makeTranscriptDbFromUCSC(genome='hg19',tablename='ccdsGene')
-# saveFeatures(txdb,'ccdsGene.hg19.sqlite')
-FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.nov2011.sqlite'
+# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite')
+# stop('finished')
+FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)
 
 hg19.transcripts <- transcriptsByOverlaps(txdb,bamRegion)
@@ -113,7 +114,7 @@ cat('\n\n')
 cat('Total length of Exons in candidate region overlapping capture enrichment:\n')
 cat(paste(size.transcripts,'bp, ',number.genes,' genes, ',number.transcripts,' transcripts, ',number.exons,' exons, mean coverage: ',formatC(coverage.exon.means,digits=2,format='f'),'X\n',sep=''))
 cat('List of genes in region:\n')
-cat(as.vector(unique(transcripts_to_genes$hgnc)))
+cat(as.vector(unique(transcripts_to_genes$hgnc[transcripts_to_genes$hgnc != "NA"])))
 cat('\n')
 # cat('Number and % of transcripts covered at mean < 8X:\n')
 # cat(paste('n=',transcripts.less_than_minimum.covered,', ',transcripts.pct,'% of target.\n',sep=''))
