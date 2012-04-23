@@ -285,15 +285,15 @@ def snp_filter(vcf, output):
              --keep-INFO-all "
             % (vcf, output, exome))
 
-def indel_filter(vcf, temp, final_calls):
+def indel_filter(vcf, output):
     """Apply filters to the vcf file to generate the final call of indels"""
     run_cmd("vcftools --vcf %s \
              --out %s \
              --recode \
              --bed %s \
 	     --keep-INFO-all "
-            % (vcf, temp, exome))
-    run_cmd("mv %s.recode.vcf %s" %(temp, final_calls))
+            % (vcf, output, exome))
+    run_cmd("mv %s.recode.vcf %s" %(output, output))
 
 def pileup_to_vcf(pileup, filtered, prefix):
     """Convert the pileup file to vcf"""
@@ -513,10 +513,10 @@ def filter_snps(vcf, snps,extra):
     snp_filter(vcf, extra)
 
 @follows('indels_to_vcf')
-@transform(indels_to_vcf, suffix('.indel.vcf'), '.snp.recode.vcf',r'\1.indel')
-def filter_indels(vcf, indel_calls,extra):
+@transform(indels_to_vcf, suffix('.indel.vcf'), '.indel')
+def filter_indels(vcf, indel_calls):
     """Use vcftools for filtering the vcf output, indels"""
-    indel_filter(vcf, extra, indel_calls)
+    indel_filter(vcf, indel_calls)
 
 @follows('recalibrate_baseq2')
 @transform(recalibrate_baseq2, suffix('.gatk.bam'), '.gatk.bam.bai')
