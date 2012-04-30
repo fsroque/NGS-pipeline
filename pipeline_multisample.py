@@ -186,7 +186,7 @@ def run_cmd(cmd_str):
 
 def rename(file,new_file):
     """rename file"""
-    os.rename(file,newfile)
+    os.rename(file,new_file)
 
 def remove(file):
     """remove file"""
@@ -261,6 +261,32 @@ def table_recalibration(bam, recal_data, output):
             -recalFile %s" 
             % (gatk, reference, bam, output, recal_data) )
 
+def bam_quality_score_distribution(bam,qs,pdf):
+    """Calculates quality score distribution histograms"""
+    run_cmd("java -jar {picard}/QualityScoreDistribution.jar \
+             CHART_OUTPUT={chart} \
+             OUTPUT={output} \
+             INPUT={bam} \
+             VALIDATION_STRINGENCY=SILENT".format(
+                 picard=picard,
+                 chart=pdf,
+                 output=qs,
+                 bam=bam
+             ))
+
+def bam_alignment_metrics(bam,metrics):
+    """Collects alignment metrics for a bam file"""
+    run_cmd("java -jar {picard}/CollectAlignmentSummaryMetrics.jar \
+             REFERENCE_SEQUENCE={reference} \
+             OUTPUT={output} \
+             INPUT={bam} \
+             VALIDATION_STRINGENCY=SILENT".format(
+                 picard=picard,
+                 reference=reference,
+                 output=metrics,
+                 bam=bam
+             ))
+
 def filter_by_exome_region(vcf, output):
     """Apply filters to the vcf file to limit calling to exome region"""
     run_cmd("vcftools --vcf %s \
@@ -285,19 +311,22 @@ def multisample_variant_call(files, output):
     
 def merge_batch_vcf(vcfs, output):
     """Merges vcf files from the batch run"""
-    merging = ''
-    for i in range(len(vcfs)):
-        merging = merging + ' -V:batch{number} {file}'.format(number=i,file=vcfs[i])
-    run_cmd("java -Xmx4g -jar {gatk} \
-            -R {reference} \
-            -T CombineVariants \
-            -o {output} \
-            {files}".format(
-                gatk=gatk,
-                reference=reference,
-                output=output,
-                files=merging
-            )) 
+    if len(vcfs) == 1:
+        run_cmd('mv {vcf} {output}'.format(vcfs[0],output))
+    else:
+        merging = ''
+        for i in range(len(vcfs)):
+            merging = merging + ' -V:batch{number} {file}'.format(number=i,file=vcfs[i])
+        run_cmd("java -Xmx4g -jar {gatk} \
+                -R {reference} \
+                -T CombineVariants \
+                -o {output} \
+                {files}".format(
+                    gatk=gatk,
+                    reference=reference,
+                    output=output,
+                    files=merging
+                )) 
             
 def merge_indel_and_snp_vcf(snp,indel, output):
     """Merges vcf files from the batch run"""
@@ -306,14 +335,12 @@ def merge_indel_and_snp_vcf(snp,indel, output):
             -T CombineVariants \
             -V:SNP {snp} \
             -V:INDEL {indel} \
-            -o {output} \
-            {files}".format(
+            -o {output}".format(
                 gatk=gatk,
                 reference=reference,
                 snp=snp,
                 indel=indel,
-                output=output,
-                files=merging
+                output=output
             )) 
 
 
@@ -362,7 +389,7 @@ def apply_recalibration(vcf,recal,tranches,output):
             --ts_filter_level 99.0 \
             -tranchesFile {tranches}  \
             -recalFile {recal} \
-            -o output".format(
+            -o {output}".format(
                 gatk=gatk,
                 reference=reference,
                 vcf=vcf,
@@ -509,7 +536,7 @@ def generate_parameters():
 
 @files(generate_parameters)
 def link(none, bam, extra):
-    """Make working directory, chdir and make symlink to bam file"""
+    """Make working directory and make symlink to bam file"""
     if not os.path.exists(extra[0]):
         os.mkdir(extra[0])
     if not os.path.exists(bam):
@@ -599,7 +626,7 @@ def apply_indel_filter(input,output):
     filter_indels(input,output)
     # remove(input)
 
-@follows('apply_indel_filter','apply_recalibration_filter')
+@follows('apply_recalibration_filter','apply_indel_filter')
 @transform(['multisample.gatk.indel.to_filter.vcf','multisample.gatk.snp.to_filter.vcf'], suffix(".to_filter.vcf"), '.filtered.vcf')
 def filter_variants(infile,outfile):
     """Filter variants that passed"""
@@ -616,11 +643,14 @@ def merge_variants(filtered,variants):
     
 @follows('merge_variants')
 @transform(merge_variants,suffix('.variants.vcf'),'variants.exome.vcf',r'\1.variants')
-def finall_calls(input,output):
+def final_calls(input,output,extra):
     """Produce the final variant calls"""
-    filter_by_exome_region(vcf, extra)
+    filter_by_exome_region(input, extra)
     rename('multisample.gatk.variants.recode.vcf','multisample.gatk.variants.exome.vcf')
     # remove('multisample.gatk.variants.vcf')
+
+#TODO http://www.broadinstitute.org/gsa/wiki/index.php/Merging_batched_call_sets
+
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
