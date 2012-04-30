@@ -33,10 +33,6 @@ chrEnd,
 bamFile
 ### bam file
 ) {
-    # param <- ScanBamParam(what = c("pos", "qwidth"),
-    #                     which = GRanges(chr, IRanges(chrStart, chrEnd)),
-    #                     flag = scanBamFlag(isUnmappedQuery = FALSE)
-    #                     )
     param <- ScanBamParam(what = c("rname", "strand","pos", "qwidth"),
                         which = GRanges(chr,IRanges(chrStart, chrEnd)),
                         flag = scanBamFlag(isUnmappedQuery = FALSE)
@@ -74,13 +70,18 @@ bamRegion <- getSpecificRegion(chr,start,end,bam)
 FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)
 
-hg19.transcripts <- transcriptsByOverlaps(txdb,bamRegion)
-hg19.exons <- exonsByOverlaps(txdb,bamRegion)
+#Calulate transcript overlaps with the full genomic range
+region <- GRanges(chr,IRanges(start, end))
+seqnames(region) <- sub("^(\\d+)","chr\\1",seqnames(region))
+
+hg19.transcripts <- transcriptsByOverlaps(txdb,region)
+hg19.exons <- exonsByOverlaps(txdb,region)
 
 size.transcripts <- sum(width(hg19.transcripts))
 number.transcripts <- length(hg19.transcripts)
 number.exons <- length(hg19.exons)
 
+#intersect the transcript range with the actual reads reported, to calculate coverage
 coverage.transcripts <- Views(coverage(bamRegion)[paste('chr',chr,sep='')],as(hg19.transcripts,"RangesList")[paste('chr',chr,sep='')])
 coverage.exons <- Views(coverage(bamRegion)[paste('chr',chr,sep='')],as(hg19.exons,"RangesList")[paste('chr',chr,sep='')])
 
@@ -118,7 +119,7 @@ cat(as.vector(unique(transcripts_to_genes$hgnc[transcripts_to_genes$hgnc != "NA"
 cat('\n')
 # cat('Number and % of transcripts covered at mean < 8X:\n')
 # cat(paste('n=',transcripts.less_than_minimum.covered,', ',transcripts.pct,'% of target.\n',sep=''))
-cat('Number and % of exons covered at mean < 8X:\n')
+cat(paste('Number and % of exons covered at mean < ',minCoverage,'X:\n',sep=''))
 cat(paste('n=',exons.less_than_minimum.covered,', ',exons.pct,'% of target.\n',sep=''))
 
 if (exons.less_than_minimum.covered > 0) {
