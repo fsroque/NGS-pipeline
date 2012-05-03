@@ -307,6 +307,8 @@ def multisample_variant_call(files, output):
             --dbsnp %s " % (gatk, reference, output, options.jobs, dbsnp)
     for file in files:
         cmd = cmd + '-I {} '.format(file)
+    #log the results
+    cmd = cmd + '&> {}.log'.format(output)
     run_cmd(cmd)
     
 def merge_batch_vcf(vcfs, output):
