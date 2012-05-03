@@ -104,7 +104,12 @@ exons_to_transcripts <- as.matrix(findOverlaps(exons.less_than_minimum,hg19.tran
 exons_to_transcripts[,2] <- elementMetadata(hg19.transcripts[exons_to_transcripts[, 2]])[, "tx_name"]
 #which(exons_to_transcripts[,1] == '181')
 #translate to hgnc_symbols from ccds transcript id's
-transcripts_to_genes <- data.frame(transcript=elementMetadata(hg19.transcripts)[, "tx_name"], hgnc=synergizer(authority="ensembl", species="Homo sapiens", domain="ccds", range="hgnc_symbol", ids=sub("\\..*",'',as.vector(elementMetadata(hg19.transcripts)[, "tx_name"])))[,2])
+#synergizer crashes if there is only one id
+ids <- sub("\\..*",'',as.vector(elementMetadata(hg19.transcripts)[, "tx_name"]))
+if (length(ids) == 1){
+	ids<-append("",ids)
+}
+transcripts_to_genes <- data.frame(transcript=elementMetadata(hg19.transcripts)[, "tx_name"], hgnc=synergizer(authority="ensembl", species="Homo sapiens", domain="ccds", range="hgnc_symbol", ids=ids)[,2])
 number.genes<-length(unique(transcripts_to_genes$hgnc))
 
 cat('Script version', VERSION,'\n')
