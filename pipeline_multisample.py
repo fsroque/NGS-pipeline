@@ -439,7 +439,7 @@ def cleanup_files():
     run_cmd("rm -rf */*.recal_data.csv */*.realign* */*.rmdup* */*.log *.log \
             *.to_filter* multisample.gatk.snp.recal multisample.gatk.snp.vcf* \
             multisample.gatk.variants.vcf* multisample.gatk.indel.filtered.vcf* \
-            multisample.gatk.snp.filtered.vcf* batch*")
+            multisample.gatk.snp.filtered.vcf* batch* multisample.gatk.indel.vcf*")
     
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
