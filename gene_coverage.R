@@ -70,7 +70,7 @@ txdb = loadFeatures(FEATURES)
 
 cat('Script version', VERSION,'\n')
 cat('Database', FEATURES,'\n\n')
-cat(bam,'\n')
+cat('Sample', bam,'\n')
 cat('Candidate Genes: ')
 cat(genes)
 cat('\n\n')
@@ -107,16 +107,30 @@ for (i in 1:length(genes)) {
 		elementMetadata(hg19.transcripts)$mean_coverage <- as.vector(viewMeans(coverage.transcripts))
 		elementMetadata(hg19.exons)$mean_coverage <- as.vector(viewMeans(coverage.exons))
 		
-		cat(genes[i]," - ",number.transcripts," transcripts, ",number.exons," exons, ", formatC(coverage.exon.means,digits=2,format='f'),'X mean exonic coverage',sep='')
+		# I hate R...
+		X10 <- sum(viewApply(coverage.exons[[1]], function(x) sum(width(slice(x,lower=10)))))/sum(viewApply(coverage.exons[[1]], function(x) sum(width(x))))
+		X20 <- sum(viewApply(coverage.exons[[1]], function(x) sum(width(slice(x,lower=20)))))/sum(viewApply(coverage.exons[[1]], function(x) sum(width(x))))
+		X30 <- sum(viewApply(coverage.exons[[1]], function(x) sum(width(slice(x,lower=30)))))/sum(viewApply(coverage.exons[[1]], function(x) sum(width(x))))
+		
+		cat('Gene ', genes[i]," - ",number.transcripts," transcripts, ",number.exons," exons, ", 
+				formatC(coverage.exon.means,digits=2,format='f'),'X mean exonic coverage, ', 
+				formatC(X10,digits=2,format='f'),' above 10X, ', 
+				formatC(X20,digits=2,format='f'),' above 20X, ', 
+				formatC(X30,digits=2,format='f'),' above 30X',
+				sep='')
 		cat("\n")
 		cat("List of exons:")
 		cat("\n")
-		cat(paste('chromosome','start','end', 'mean_coverage\n',sep='\t'))
+		cat(paste('chromosome','start','end', 'mean_coverage','>10X','>20X','>30X','\n',sep='\t'))
 		for (j in 1:number.exons) {
 			meanCoverage <- formatC(elementMetadata(hg19.exons[j])$mean_coverage,digits=2,format="f")
-      chromstart <- as.data.frame(hg19.exons)[j,][2]
-      chromend <- as.data.frame(hg19.exons)[j,][3]
-			cat(paste(chr,chromstart,chromend,meanCoverage,'\n', sep="\t"))
+      	    chromstart <- as.data.frame(hg19.exons)[j,][2]
+            chromend <- as.data.frame(hg19.exons)[j,][3]
+			exon_size <- sum(width(coverage.exons[[1]][[j]]))
+			exon_10X <- sum(width(slice(coverage.exons[[1]][[j]], lower=10))) / exon_size
+			exon_20X <- sum(width(slice(coverage.exons[[1]][[j]], lower=20))) / exon_size
+			exon_30X <- sum(width(slice(coverage.exons[[1]][[j]], lower=30))) / exon_size
+			cat(paste(chr,chromstart,chromend,meanCoverage,round(exon_10X, 2),round(exon_20X, 2) ,round(exon_30X, 2), '\n', sep="\t"))
 		}
 		
 		cat('\n')
