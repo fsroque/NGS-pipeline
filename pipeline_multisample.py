@@ -234,7 +234,7 @@ def dup_removal_samtools(bam,output):
                 
 def count_covariates(bam, recal_data):
     """Uses GATK to count covariates"""
-    run_cmd("java -Xmx4g -jar %s \
+    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/mpesj/tmp -Xmx4g -jar %s \
             -T CountCovariates \
             -l INFO \
             -R %s \
@@ -434,6 +434,12 @@ def remove_filtered(vcf,output):
                 input=vcf,
                 output=output
             ))
+
+def cleanup_files():
+    run_cmd("rm -rf */*.recal_data.csv */*.realign* */*.rmdup* */*.log *.log \
+            *.to_filter* multisample.gatk.snp.recal multisample.gatk.snp.vcf* \
+            multisample.gatk.variants.vcf* multisample.gatk.indel.filtered.vcf* \
+            multisample.gatk.snp.filtered.vcf* batch*")
     
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
@@ -586,6 +592,19 @@ def recalibrate_baseq2(inputs, output):
     table_recalibration(inputs[0], inputs[1], output)
     # remove(inputs[1])
 
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.quality_score')
+def metric_quality_score_distribution(input,output):
+    """docstring for metrics1"""
+    bam_quality_score_distribution(input, output, output + '.pdf')
+
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.metrics')
+def metric_alignment(input,output):
+    """docstring for metrics1"""
+    bam_alignment_metrics(input, output)
+
+
 @merge(recalibrate_baseq2, 'multisample.gatk.vcf')
 def call_variants(infiles, output):
     """Splits the files into s number of batches, calls the variants, and merges them back"""
@@ -642,14 +661,15 @@ def merge_variants(filtered,variants):
     merge_indel_and_snp_vcf(filtered[1],filtered[0],variants)
     # remove(filtered[0])
     #     remove(filtered[1])
-    
+
+@posttask(cleanup_files)
 @follows('merge_variants')
-@transform(merge_variants,suffix('.variants.vcf'),'variants.exome.vcf',r'\1.variants')
+@transform(merge_variants,suffix('.variants.vcf'),'.variants.exome.vcf',r'\1.variants')
 def final_calls(input,output,extra):
     """Produce the final variant calls"""
     filter_by_exome_region(input, extra)
     rename('multisample.gatk.variants.recode.vcf','multisample.gatk.variants.exome.vcf')
-    # remove('multisample.gatk.variants.vcf')
+    
 
 #TODO http://www.broadinstitute.org/gsa/wiki/index.php/Merging_batched_call_sets
 
