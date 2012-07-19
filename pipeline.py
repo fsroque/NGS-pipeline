@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """
 
-    ruffus_template.py
+    pipeline.py
+			[--bam GLOB]
                         [--log_file PATH]
                         [--verbose]
                         [--target_tasks]
@@ -19,6 +20,7 @@ import glob
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
 #   user definable options
+#   Just uncomment the desired option, and comment the ones that are not needed
 
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     parser.add_option("-b", "--bam", dest="bam_file",
                         metavar="FILE",
                         type="string",
-                        help="Path of alignment file in BAM format. ")
+                        help="Path of alignment file in BAM format. Can be specified as a glob (*.bam) to run with multiple files.")
     
 
 
@@ -158,7 +160,8 @@ if __name__ == '__main__':
         if not len(missing_options):
             return
 
-        raise Exception("Missing mandatory parameter%s: %s.\n\n%s\n\n" % ("s" if len(missing_options) > 1 else "",", ".join(missing_options),helpstr))
+        print("Missing mandatory parameter%s: %s.\n\n%s\n\n" % ("s" if len(missing_options) > 1 else "",", ".join(missing_options),helpstr))
+	sys.exit()
     check_mandatory_options (options, mandatory_options, helpstr)
 
 
