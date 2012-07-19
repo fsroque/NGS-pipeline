@@ -29,10 +29,15 @@ picard = '/usr/local/esysbio/src/picard-tools'
 gatk = '/usr/local/esysbio/src/GenomeAnalysisTK/dist/GenomeAnalysisTK.jar'
 #reference files
 reference = '/export/astrakanfs/mpesj/reference/human_g1k_v37.clean.fasta'
+#reference = '/export/astrakanfs/mpesj/reference/solid/hg19.fa'
+#dbSNP version to use
 dbsnp = '/export/astrakanfs/mpesj/reference/dbsnp_132_GRCh37.vcf'
+#dbsnp = '/export/astrakanfs/mpesj/reference/solid/dbsnp_132_normalized.vcf'
+#Exome file depends on the enrichment kit used
 #exome = '/export/astrakanfs/mpesj/reference/Agilent_SureSelect_v1_GRCh37.bed'
 exome = '/export/astrakanfs/mpesj/reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_wingspan.bed'
 #exome = '/export/astrakanfs/fro061/reference/Nimblegen3.0_new_samples_intersect.bed'
+#exome = '/export/astrakanfs/mpesj/reference/solid/intersect_nimblegen_targetseq_ucsc.bed'
 
 bed = os.path.basename(exome)
 sys.stderr.write("WARNING: using %s as the bed file\n" % bed)
@@ -235,6 +240,7 @@ def count_covariates(bam, recal_data):
             -cov QualityScoreCovariate \
             -cov CycleCovariate \
             -cov DinucCovariate \
+            --solid_nocall_strategy PURGE_READ \
             -I %s \
             -recalFile %s"
             % (gatk, cpus, reference, dbsnp, bam, recal_data))
@@ -246,6 +252,7 @@ def table_recalibration(bam, recal_data, output):
             --default_platform illumina \
             -R %s \
             --preserve_qscores_less_than 5 \
+            --solid_nocall_strategy PURGE_READ \
             -l INFO \
             -I %s \
             --out %s \

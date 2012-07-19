@@ -64,8 +64,9 @@ minCoverage <- as.integer(args[5])
 createBamIndex(bam)
 bamRegion <- getSpecificRegion(chr,start,end,bam)
 
+# To update the ccds gene database uncomment the 3 lines below.
 # txdb <- makeTranscriptDbFromUCSC(genome='hg19',tablename='ccdsGene')
-# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite')
+# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.<date>.sqlite')
 # stop('finished')
 FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)

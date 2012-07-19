@@ -314,7 +314,7 @@ def multisample_variant_call(files, output):
 def merge_batch_vcf(vcfs, output):
     """Merges vcf files from the batch run"""
     if len(vcfs) == 1:
-        run_cmd('mv {vcf} {output}'.format(vcfs[0],output))
+        run_cmd('mv {vcf} {output}'.format(vcf = vcfs[0], output = output))
     else:
         merging = ''
         for i in range(len(vcfs)):

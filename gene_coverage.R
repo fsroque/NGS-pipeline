@@ -62,8 +62,9 @@ genes_info <- getBM(attributes = c("hgnc_symbol","chromosome_name","start_positi
 #genes_to_ccds[1] gene ids genes_to_ccds[2] ccds ids
 # genes_to_ccds <- synergizer(authority="ensembl", species="Homo sapiens", domain="hgnc_symbol", range="ccds", ids=genes)
 
+# To update database uncomment the next 3 lines.
 # txdb <- makeTranscriptDbFromUCSC(genome='hg19',tablename='ccdsGene')
-# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite')
+# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.<date>.sqlite')
 # stop('finished')
 FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)
