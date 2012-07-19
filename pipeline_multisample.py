@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
 
-    ruffus_template.py
+    pipeline_multisample.py
+			[--bamdir PATH]
+			[--groups INT]
                         [--log_file PATH]
                         [--verbose]
                         [--target_tasks]
@@ -147,7 +149,8 @@ if __name__ == '__main__':
         if not len(missing_options):
             return
 
-        raise Exception("Missing mandatory parameter%s: %s.\n\n%s\n\n" % ("s" if len(missing_options) > 1 else "",", ".join(missing_options),helpstr))
+        print("Missing mandatory parameter%s: %s.\n\n%s\n\n" % ("s" if len(missing_options) > 1 else "",", ".join(missing_options),helpstr))
+	sys.exit()
     check_mandatory_options (options, mandatory_options, helpstr)
 
 
