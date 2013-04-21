@@ -56,7 +56,7 @@ end <- as.integer(args[4])
 minCoverage <- as.integer(args[5])
 
 # ccds <- parseBedFile('ccds.bed')
-# bam <- '/export/astrakanfs/mpesj/Agilent/1040PRN0046_GRCh37.gatk.bam'
+# bam <- '/export/astrakanfs/stefanj/Agilent/1040PRN0046_GRCh37.gatk.bam'
 # chr <- 7
 # start<-36399490
 # end<-55889334
@@ -66,9 +66,9 @@ bamRegion <- getSpecificRegion(chr,start,end,bam)
 
 # To update the ccds gene database uncomment the 3 lines below.
 # txdb <- makeTranscriptDbFromUCSC(genome='hg19',tablename='ccdsGene')
-# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.<date>.sqlite')
+# saveFeatures(txdb,'/export/astrakanfs/stefanj/reference/ccdsGene.hg19.<date>.sqlite')
 # stop('finished')
-FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
+FEATURES <- '/export/astrakanfs/stefanj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)
 
 #Calulate transcript overlaps with the full genomic range

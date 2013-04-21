@@ -1,0 +1,126 @@
+# bin directory
+
+Contains all the custom programs to run the pipeline and extract information from bams.
+
+
+## Pipeline
+
+The NGS pipeline can be run using one of two python scripts:
+
+### pipeline.py
+
+Main pipeline file for *single sample analysis*.
+
+*   Running the script
+
+    You can run the script using `python ~/bin/pipeline.py`.
+    A list of possible options will be presented. The only required option is `--bam`,
+    and it accepts glob expansions for inputting multiple files ('e.g. *.bam').
+  
+    If you want to follow progress of the script, use the verbose option (`-vvvvv`).
+    In order to use multithreading, use the `-j` option (`-j 12`).
+
+    There are several options that need to be edited in the file, under the 
+    *user definable options* section: the paths to picard and gat; the path to the reference
+    sequence fasta; the path to dbsnp; and the path to a bed file containing the regions
+    of the capture sequence.
+
+*   Outputs
+
+    The script will create one or more directories in the current folder, named after
+    the bam file prefix (`xxx.bam` will create directory `xxx`).
+
+    After finishing a few files will be in that directory, including the cleaned up 
+    bam file (`xxx.gatk.bam`), the snp and indel files restricted by the exome bed file
+    (`xxx.snps` and `xxx.indels`), and the raw variant calls (`xxx.bcf`).
+
+*   Typical usage
+
+    For running the analysis with the default reference files (human g1k, dbsnp 132, and 
+    Nimblegen enrichment bed +- 10bp), on all the bam files in the directory ~/data/new_project
+    using 12 cpus (half of astrakan).
+
+	mkdir ~/results/new_project
+	cd ~/results/new_project
+	python ~/bin/pipeline.py --bam '~/data/new_project/*.bam' -vvvvv -j 12
+
+### pipeline_multi.py
+
+Main pipeline script for *multi sample analysis*.
+
+*   Running the script
+
+    Options are very similar to the single sample analysis, but the bam input option now
+    accepts a directory and is renamed to `--bamdir`. There is also a new option `--groups`
+    that will accept a number indicating how many groups should the dataset be split for 
+    multisample calling (I suggest that the dataset is split into groups of roughly 40
+    samples).
+
+    In addition, the *user definable options* section has two additional options: the path 
+    to the hapmap vcf; and the path to 1000g OMNI dataset vcf.
+
+*   Outputs
+
+    The script will create one or more directories in the current folder, named after
+    the bam file prefix (`xxx.bam` will create directory `xxx`). This time these folders
+    will only contain the files up to the cleaned up bam file (`xxx.gatk.bam`)
+
+    In the directory where the script is run, additional files will be created with the
+    multisample results (`multisample.gatk.variants.vcf` for the multisample snp and indels,
+    and `multisample.gatk.variants.exome.vcf` for the variants restricted to the bed file).
+
+*   Typical usage
+
+    For running with the default settings on all the bam files present in the directory
+    ~/data/new_project, splitting them into 3 distinct groups, using 12 cpus in astrakan:
+
+	mkdir ~/results/new_project
+	cd ~/results/new_project
+	python ~/bin/pipeline_multisample.py --bamdir ~/data/new_project --groups 3 -vvvvv -j 12
+
+## Information about bam files
+
+### gene_coverage.R
+
+Calculates the coverage across all exons in a bam file, for a given set of genes
+
+*    Running the script
+
+     The script accepts a a bam file as the first option and any number of gene names, space
+     separated.
+
+*    Outputs
+    
+     The script will write to standard out a gene coverage info for each gene, together with
+     individual exon coverage analysis for each gene. Exon position is derived from the ccds
+     database. Updating the database should be done in the apropriate section of the script.
+
+*    Typical usage
+
+     Calculate gene coverage for LPT1 in bam `xxx.bam`:
+
+	Rscript ~/bin/gene_coverage.R 'xxx.bam' LPT1
+
+### region_coverage.R
+
+Calulates coverage statistics for a specific region in the genome, along with exon coverage
+for that region.
+
+*    Running the script
+
+     The script accepts a a bam file as the first option, chromosome number, start position,
+     end position, and minimum coverage wanted for the report.
+
+*    Outputs
+
+     The script will write to standard out exon coverage information for the specified region.
+
+*    Typical usage
+
+     Calculate exon statistics for `xxx.bam` in chr7, between pos 36399490 and 55889334, 
+     with a minimum coverage of 8x:
+
+	Rscript ~/bin/region_coverage.R 'xxx.bam' 7 36399490 55889334 8
+
+
+

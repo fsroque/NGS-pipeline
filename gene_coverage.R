@@ -1,7 +1,7 @@
 # Rscript for coverage statistics for a list of genes in a sample
 # Rscript coverage.R '<full path to bam file>' geneA geneB geneX minCoverage
 
-.libPaths('/home/fro061/R/library')
+.libPaths('/home/roque/R/library')
 suppressMessages(require(Rsamtools,quiet=TRUE))
 suppressMessages(require(multicore,quiet=TRUE))
 suppressMessages(require(GenomicFeatures,quiet=TRUE))
@@ -64,9 +64,9 @@ genes_info <- getBM(attributes = c("hgnc_symbol","chromosome_name","start_positi
 
 # To update database uncomment the next 3 lines.
 # txdb <- makeTranscriptDbFromUCSC(genome='hg19',tablename='ccdsGene')
-# saveFeatures(txdb,'/export/astrakanfs/mpesj/reference/ccdsGene.hg19.<date>.sqlite')
+# saveFeatures(txdb,'/export/astrakanfs/stefanj/reference/ccdsGene.hg19.<date>.sqlite')
 # stop('finished')
-FEATURES <- '/export/astrakanfs/mpesj/reference/ccdsGene.hg19.mar2012.sqlite'
+FEATURES <- '/export/astrakanfs/stefanj/reference/ccdsGene.hg19.mar2012.sqlite'
 txdb = loadFeatures(FEATURES)
 
 cat('Script version', VERSION,'\n')

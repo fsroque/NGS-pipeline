@@ -28,11 +28,11 @@ import glob
 picard = '/usr/local/esysbio/src/picard-tools'
 gatk = '/usr/local/esysbio/src/GenomeAnalysisTK/dist/GenomeAnalysisTK.jar'
 #reference files
-reference = '/export/astrakanfs/mpesj/reference/human_g1k_v37.clean.fasta'
-dbsnp = '/export/astrakanfs/mpesj/reference/dbsnp_132_GRCh37.vcf'
-exome = '/export/astrakanfs/mpesj/reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_wingspan.bed'
-hapmap = '/export/astrakanfs/mpesj/reference/hapmap_3.3.b37.sites.vcf'
-omni = '/export/astrakanfs/mpesj/reference/1000G_omni2.5.b37.sites.vcf'
+reference = '/export/astrakanfs/stefanj/reference/human_g1k_v37.clean.fasta'
+dbsnp = '/export/astrakanfs/stefanj/reference/dbsnp_132_GRCh37.vcf'
+exome = '/export/astrakanfs/stefanj/reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_wingspan.bed'
+hapmap = '/export/astrakanfs/stefanj/reference/hapmap_3.3.b37.sites.vcf'
+omni = '/export/astrakanfs/stefanj/reference/1000G_omni2.5.b37.sites.vcf'
 
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
@@ -237,7 +237,7 @@ def dup_removal_samtools(bam,output):
                 
 def count_covariates(bam, recal_data):
     """Uses GATK to count covariates"""
-    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/mpesj/tmp -Xmx4g -jar %s \
+    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx4g -jar %s \
             -T CountCovariates \
             -l INFO \
             -R %s \
@@ -301,7 +301,7 @@ def filter_by_exome_region(vcf, output):
 
 def multisample_variant_call(files, output):
     """Perform multi-sample variant calling using GATK"""
-    cmd = "nice java -Djava.io.tmpdir=/export/astrakanfs/mpesj/tmp -Xmx4g -jar %s \
+    cmd = "nice java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx4g -jar %s \
             -T UnifiedGenotyper \
             -R %s \
             -o %s \
