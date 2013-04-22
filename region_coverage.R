@@ -1,7 +1,7 @@
 # Rscript for coverage statistics and number of features in a region of a bam file
 # Rscript coverage.R '/export/astrakanfs/mpesj/Agilent/1040PRN0046_GRCh37.gatk.bam' 7 36399490 55889334 8
 
-.libPaths('/home/fro061/R/library')
+.libPaths('../R/library')
 suppressMessages(require(Rsamtools,quiet=TRUE))
 suppressMessages(require(multicore,quiet=TRUE))
 suppressMessages(require(GenomicFeatures,quiet=TRUE))
