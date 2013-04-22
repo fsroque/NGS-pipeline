@@ -82,6 +82,8 @@ cat('\n')
 #iterate over each gene
 for (i in 1:length(genes)) {
 	info <- subset(genes_info, hgnc_symbol == genes[i])
+	# Remove any references to Locus Reference Genomic locations
+	info <- subset(info, !grepl("LRG", chromosome_name))
 	if (dim(info)[1] > 0) {
 		#focus on the gene region
 		chr <- info$chromosome_name
