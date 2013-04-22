@@ -145,12 +145,14 @@ if __name__ == '__main__':
         for o in mandatory_options:
             if not getattr(options, o):
                 missing_options.append("--" + o)
-
+    
         if not len(missing_options):
             return
-
-        print("Missing mandatory parameter%s: %s.\n\n%s\n\n" % ("s" if len(missing_options) > 1 else "",", ".join(missing_options),helpstr))
-	sys.exit()
+    
+        raise Exception("Missing mandatory parameter%s: %s.\n\n%s\n\n" %
+                        ("s" if len(missing_options) > 1 else "",
+                         ", ".join(missing_options),
+                         helpstr))
     check_mandatory_options (options, mandatory_options, helpstr)
 
 
