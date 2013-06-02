@@ -632,16 +632,9 @@ def reduce_bam(input, output):
 def call_variants_hc(bam, vcf):
     """Call snps on the data, using samtools"""
     call_variants(bam, vcf)    
-    
 
 @follows('call_variants_hc')
-@transform(call_snps, suffix('.bcf'), '.snp.vcf')
-def snps_to_vcf(bcf, vcf):
-    """Converts bcf files to snp vcf"""
-    bcf_to_snp(bcf,vcf)
-
-@follows('call_snps')
-@transform(call_snps, suffix('.vcf'), '.indel.vcf')
+@transform(call_variants_hc, suffix('.vcf'), '.indel.vcf')
 def vcf_to_indels(vcf, indel):
     """Converts bcf files to vcf, only indels"""
     split_indels(vcf, indel)
@@ -652,8 +645,8 @@ def filter_indel_file(vcf, output):
     """Converts bcf files to vcf, only indels"""
     filter_indels(vcf, output)
 
-@follows('call_snps')
-@transform(call_snps, suffix('.vcf'), '.snp.vcf')
+@follows('call_variants_hc')
+@transform(call_variants_hc, suffix('.vcf'), '.snp.vcf')
 def vcf_to_snps(vcf, snp):
     """Converts bcf files to vcf, only indels"""
     split_snps(vcf, snp)
