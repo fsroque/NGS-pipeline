@@ -24,22 +24,18 @@ import glob
 
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
-#number of cpus to use when multithreading
-cpus = 1 
 #path to binaries
-picard = '/usr/local/esysbio/src/picard-tools'
-gatk = '/usr/local/esysbio/src/GenomeAnalysisTK/dist/GenomeAnalysisTK.jar'
+script_path = os.path.dirname(os.path.realpath(__file__))
+picard = os.path.join(script_path,'../src/picard-tools')
+gatk = os.path.join(script_path,'../src/GenomeAnalysisTK/GenomeAnalysisTK.jar')
 #reference files
-reference = '/export/astrakanfs/stefanj/reference/human_g1k_v37.clean.fasta'
-#reference = '/export/astrakanfs/stefanj/reference/solid/hg19.fa'
-#dbSNP version to use
-dbsnp = '/export/astrakanfs/stefanj/reference/dbsnp_132_GRCh37.vcf'
-#dbsnp = '/export/astrakanfs/stefanj/reference/solid/dbsnp_132_normalized.vcf'
-#Exome file depends on the enrichment kit used
-#exome = '/export/astrakanfs/stefanj/reference/Agilent_SureSelect_v1_GRCh37.bed'
-exome = '/export/astrakanfs/stefanj/reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_wingspan.bed'
-#exome = '/export/astrakanfs/fro061/reference/Nimblegen3.0_new_samples_intersect.bed'
-#exome = '/export/astrakanfs/stefanj/reference/solid/intersect_nimblegen_targetseq_ucsc.bed'
+reference = os.path.join(script_path,'../reference/human_g1k_v37.clean.fasta')
+dbsnp = os.path.join(script_path,'../reference/dbsnp_137.b37.vcf')
+exome = os.path.join(script_path,'../reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_wingspan.bed')
+capture = os.path.join(script_path,'../reference/Nimblegen_SeqCap_EZ_Exome_v2_37_targetRegOnly_g1k.bed')
+hapmap = os.path.join(script_path,'../reference/hapmap_3.3.b37.sites.vcf')
+omni = os.path.join(script_path,'../reference/1000G_omni2.5.b37.sites.vcf')
+mills = os.path.join(script_path,'../reference/Mills_and_1000G_gold_standard.indels.b37.vcf')
 
 bed = os.path.basename(exome)
 sys.stderr.write("WARNING: using %s as the bed file\n" % bed)
@@ -210,8 +206,9 @@ def find_realigns(bam, intervals_file):
              -T RealignerTargetCreator \
              -I %s \
              -R %s \
-             -o %s" 
-             % (gatk, bam, reference, intervals_file))
+             -o %s \
+             -nt %d" 
+             % (gatk, bam, reference, intervals_file, n_cpus))
              
 def run_realigner(bam, intervals_file, realigned_bam):
     """Performs local realignment of reads based on misalignments due to the presence of indels"""
@@ -223,79 +220,110 @@ def run_realigner(bam, intervals_file, realigned_bam):
              -o %s" 
              % (gatk, bam, reference, intervals_file, realigned_bam))
 
-def dup_removal_picard(bam,output):
-    """Use Picard to remove duplicates"""
-    run_cmd('java -Xmx4096m -jar %s/CleanSam.jar INPUT=%s OUTPUT=%s VALIDATION_STRINGENCY=LENIENT VERBOSITY=ERROR' 
-                % (picard,bam,output))
-
-def dup_removal_samtools(bam,output):
-    """Use samtools for dupremoval"""
-    run_cmd('samtools rmdup %s %s' % (bam,output))
+def dup_mark_picard(bam,output):
+    """Use Picard to mark duplicates"""
+    run_cmd('java -Xmx4096m -jar %s/MarkDuplicates.jar TMP_DIR=/export/astrakanfs/stefanj/tmp REMOVE_DUPLICATES=true INPUT=%s OUTPUT=%s METRICS_FILE=%s.dup_metrics VALIDATION_STRINGENCY=LENIENT VERBOSITY=ERROR CREATE_INDEX=true'
+                % (picard,bam,output,bam))
                 
-def count_covariates(bam, recal_data):
-    """Uses GATK to count covariates"""
-    run_cmd("java -Xmx4g -jar %s \
-            -T CountCovariates \
-            -nt %s \
-            -l INFO \
+def base_recalibrator(bam, recal_data):
+    """First pass of the recalibration step"""
+    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx8g -jar %s \
+            -T BaseRecalibrator \
             -R %s \
             -knownSites %s \
-            --default_platform illumina \
-            -cov ReadGroupCovariate \
-            -cov QualityScoreCovariate \
-            -cov CycleCovariate \
-            -cov DinucCovariate \
-            --solid_nocall_strategy PURGE_READ \
             -I %s \
-            -recalFile %s"
-            % (gatk, cpus, reference, dbsnp, bam, recal_data))
-            
-def table_recalibration(bam, recal_data, output):
+            -o %s \
+            -nct %d"
+            % (gatk, reference, dbsnp, bam, recal_data, n_cpus))
+
+def print_recalibrated(bam, recal_data, output):
     """uses GATK to rewrite quality scores using the recal_data"""
-    run_cmd("java -Xmx4g -jar %s \
-            -T TableRecalibration \
-            --default_platform illumina \
+    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx4g -jar %s \
+            -T PrintReads \
             -R %s \
-            --preserve_qscores_less_than 5 \
-            --solid_nocall_strategy PURGE_READ \
-            -l INFO \
             -I %s \
             --out %s \
-            -recalFile %s" 
-            % (gatk, reference, bam, output, recal_data) )
+            -BQSR %s \
+            -nct %d" 
+            % (gatk, reference, bam, output, recal_data, n_cpus) )
 
-def snp_call_samtools(bam, pileup):
-    """Use samtools for snp calling (deprecated)"""
-    prior="0.001"
-    run_cmd("samtools pileup -vcs -r %s -l %s -f %s %s > %s" 
-            % (prior, exome, reference, bam, pileup) )
+
+def reduce_reads(bam, output):
+    """Reduces the BAM file using read based compression that keeps only essential information for variant calling"""
+    run_cmd("java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx15g -jar %s \
+            -T ReduceReads \
+            -R %s \
+            -I %s \
+            -o %s"
+            % (gatk, reference, bam, output))
             
-def snp_call_mpileup(bam, bcf):
-    """Uses samtools mpileup command for snp calling
-        -C 50 reduces the effect of reads with excessive mismatches. 
-        This aims to fix overestimated mapping quality and appears to be preferred for BWA-short
-        Removed the -l option"""
-    # get the calls with everything
-    run_cmd("samtools mpileup -ugf %s -C 50 %s | bcftools view -bvcg - > %s"
-            % (reference, bam, bcf))
+
+def bam_quality_score_distribution(bam,qs,pdf):
+    """Calculates quality score distribution histograms"""
+    run_cmd("java -jar {picard}/QualityScoreDistribution.jar \
+             CHART_OUTPUT={chart} \
+             OUTPUT={output} \
+             INPUT={bam} \
+             VALIDATION_STRINGENCY=SILENT".format(
+                 picard=picard,
+                 chart=pdf,
+                 output=qs,
+                 bam=bam
+             ))
+
+def bam_alignment_metrics(bam,metrics):
+    """Collects alignment metrics for a bam file"""
+    run_cmd("java -jar {picard}/CollectAlignmentSummaryMetrics.jar \
+             REFERENCE_SEQUENCE={reference} \
+             OUTPUT={output} \
+             INPUT={bam} \
+             VALIDATION_STRINGENCY=SILENT".format(
+                 picard=picard,
+                 reference=reference,
+                 output=metrics,
+                 bam=bam
+             ))
+             
+def bam_coverage_statistics(bam, statistics):
+    run_cmd("java -Xmx4g -jar {gatk} \
+            -R {reference} \
+            -T DepthOfCoverage \
+            -o {output} \
+            -I {input} \
+            -L {capture} \
+            -ct 8 -ct 20 -ct 30 \
+            --omitDepthOutputAtEachBase --omitLocusTable \
+            ".format(gatk=gatk,
+                reference=reference,
+                output=statistics,
+                input=bam,
+                capture=capture
+            ))
 
 
-def bcf_to_snp(bcf, snps):
-    """Converts bcf to vcf file, only snp calls"""
-    run_cmd("bcftools view -I %s | vcfutils.pl varFilter -D %d > %s" % (bcf, varfilter, snps))
-    
-def bcf_to_indels(bcf, indels):
-    """Converts bcf to vcf, only indels"""
-    run_cmd("bcftools view %s | vcfutils.pl varFilter -D %d | egrep '#|INDEL' > %s" % (bcf, varfilter, indels))
-
-def snp_filter(vcf, output):
-    """Apply filters to the vcf file to generate the final call of snps"""
+def filter_by_exome_region(vcf, output):
+    """Apply filters to the vcf file to limit calling to exome region"""
     run_cmd("vcftools --vcf %s \
              --out %s \
              --recode \
              --bed %s \
              --keep-INFO-all "
             % (vcf, output, exome))
+
+def call_variants(input, output):
+    """Perform multi-sample variant calling using GATK"""
+    cmd = "nice java -Djava.io.tmpdir=/export/astrakanfs/stefanj/tmp -Xmx8g -jar %s \
+                 -T HaplotypeCaller \
+                 -R %s \
+                 -I %s \
+                 -stand_emit_conf 10.0 \
+                 -L %s \
+                 -o output.raw.snps.indels.vcf \
+                 --dbsnp %s " % (gatk, reference, input, exome, output, dbsnp)
+    #log the results
+    cmd = cmd + '&> {}.log'.format(output)
+    run_cmd(cmd)
+
 
 def indel_filter(vcf, output):
     """Apply filters to the vcf file to generate the final call of indels"""
@@ -307,34 +335,67 @@ def indel_filter(vcf, output):
             % (vcf, output, exome))
     run_cmd("mv %s.recode.vcf %s" %(output, output))
 
-def pileup_to_vcf(pileup, filtered, prefix):
-    """Convert the pileup file to vcf"""
-    run_cmd("sam2vcf.pl --refseq %s < %s > %s.vcf.tmp"
-             % (reference, pileup, pileup))
-    # filter lines that contain D or N in the 5th column, substitute data for the sample name on the header
-    run_cmd("awk {'if ($5 !~ /[(,D)N]/) print'} %s.vcf.tmp | awk '{gsub(\"data\",\"%s\",$0);print}' > %s.vcf.tmp2" % (pileup,prefix,pileup))
-    #convert to vcd v4 (gatk does not accept v3 any more)
-    run_cmd("cat %s.vcf.tmp2 | vcf-convert -r %s > %s" % (pileup,reference, filtered)) 
+def split_snps(vcf,snp_file):
+    """Select for snps in the vcf file"""
+    run_cmd("java -Xmx2g -jar {} -R {} -T SelectVariants \
+            --variant {} -selectType SNP\
+            -o {}".format(gatk,reference,vcf,snp_file))
+            
+def split_indels(vcf,indel_file):
+    """Select for indels in the vcf file"""
+    run_cmd("java -Xmx2g -jar {} -R {} -T SelectVariants \
+            --variant {} -selectType INDEL\
+            -o {}".format(gatk,reference,vcf,indel_file))
 
-def annotate_vcf_gatk(vcf, bam, annotated_vcf):
-    """Annotate the vcf file using gatk"""
-    run_cmd("java -Xmx4g -jar %s \
-                -l INFO \
-                -T VariantAnnotator \
-                -R %s \
-                --dbsnp %s \
-                -I %s \
-                --variant %s \
-                -o %s \
-                -A AlleleBalance \
-                -A MappingQualityZero \
-                -A LowMQ \
-                -A RMSMappingQuality \
-                -A HaplotypeScore \
-                -A QualByDepth \
-                -A DepthOfCoverage \
-                -A HomopolymerRun"
-            % (gatk, reference, dbsnp, bam, vcf, annotated_vcf) )
+def variant_annotator(bam, vcf, output):
+    run_cmd("java -Xmx16g -jar {gatk} \
+            -R {reference} \
+            -T VariantAnnotator \
+            -I {bam} \
+            -o {output} \
+            -A Coverage \
+            --variant {vcf} \
+            --dbsnp {dbsnp} \
+            ".format(gatk=gatk,
+                bam=bam,
+                reference=reference,
+                output=output,
+                vcf=vcf,
+                dbsnp=dbsnp
+            ))
+
+def filter_snps(input, output):
+    """docstring for filter_snps"""
+    run_cmd("java -Xmx2g -jar {gatk} \
+       -R {reference} \
+       -T VariantFiltration \
+       -o {output} \
+       --variant {input} \
+       --filterExpression \"QD < 2.0 || MQ < 40.0 || FS > 60.0 \
+       || HaplotypeScore > 13.0 || MQRankSum < -12.5 || \
+       ReadPosRankSum < -8.0\" \
+       --filterName \"SNP filter\"".format(
+           gatk=gatk,
+           reference=reference,
+           output=output,
+           input=input
+       )
+
+def filter_indels(input, output):
+    """docstring for filter_indels"""
+    run_cmd("java -Xmx2g -jar {gatk} \
+       -R {reference} \
+       -T VariantFiltration \
+       -o {output} \
+       --variant {input} \
+       --filterExpression \"QD < 2.0 || FS > 200.0 \
+       || ReadPosRankSum < -20.0\" \
+       --filterName \"Indel filter\"".format(
+           gatk=gatk,
+           reference=reference,
+           output=output,
+           input=input
+       )
             
 def shared_snps_btw_samples(inpufile_list,pathdir):
     '''
