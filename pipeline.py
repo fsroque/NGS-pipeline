@@ -366,37 +366,79 @@ def variant_annotator(bam, vcf, output):
 
 def filter_snps(input, output):
     """docstring for filter_snps"""
-    run_cmd("java -Xmx2g -jar {gatk} \
+    run_cmd('java -Xmx2g -jar {gatk} \
        -R {reference} \
        -T VariantFiltration \
        -o {output} \
        --variant {input} \
-       --filterExpression \"QD < 2.0 || MQ < 40.0 || FS > 60.0 \
-       || HaplotypeScore > 13.0 || MQRankSum < -12.5 || \
-       ReadPosRankSum < -8.0\" \
-       --filterName \"SNP filter\"".format(
+       --filterExpression "QD < 2.0" \
+       --filterExpression "MQ < 40.0" \
+       --filterExpression "FS > 60.0" \
+       --filterExpression "HaplotypeScore > 13.0" \
+       --filterExpression "MQRankSum < -12.5" \
+       --filterExpression "ReadPosRankSum < -8.0" \
+       --filterName "QDFilter" \
+       --filterName "MQFilter" \
+       --filterName "FSFilter" \
+       --filterName "HaplotypeScoreFilter" \
+       --filterName "MQRankSumFilter" \
+       --filterName "ReadPosRankSumFilter"'.format(
            gatk=gatk,
            reference=reference,
            output=output,
            input=input
-       )
+           )
+    )
+           
+def filter_indels(vcf, output):
+    """filter indels vcf"""
+    run_cmd('java -Xmx4g -jar {gatk} \
+            -T VariantFiltration \
+            -o {output} \
+            --variant {input} \
+            --filterExpression "QD < 2.0" \
+            --filterExpression "ReadPosRankSum < -20.0"   \
+            --filterExpression "FS > 200.0"   \
+            --filterName QDFilter   \
+            --filterName ReadPosFilter   \
+            --filterName FSFilter \
+            -R {reference}'.format(
+                gatk=gatk,
+                output=output,
+                input=vcf,
+                reference=reference
+            ))
 
-def filter_indels(input, output):
-    """docstring for filter_indels"""
+def remove_filtered(vcf,output):
+    """Remove filtered variants"""
     run_cmd("java -Xmx2g -jar {gatk} \
-       -R {reference} \
-       -T VariantFiltration \
-       -o {output} \
-       --variant {input} \
-       --filterExpression \"QD < 2.0 || FS > 200.0 \
-       || ReadPosRankSum < -20.0\" \
-       --filterName \"Indel filter\"".format(
-           gatk=gatk,
-           reference=reference,
-           output=output,
-           input=input
-       )
-            
+            -T SelectVariants \
+            -R {reference} \
+            --variant {input} \
+            -o {output} \
+            -env -ef".format(
+                gatk=gatk,
+                reference=reference,
+                input=vcf,
+                output=output
+            ))
+
+
+def merge_indel_and_snp_vcf(snp,indel, output):
+    """Merges vcf files from the batch run"""
+    run_cmd("java -Xmx4g -jar {gatk} \
+            -R {reference} \
+            -T CombineVariants \
+            -V:SNP {snp} \
+            -V:INDEL {indel} \
+            -o {output}".format(
+                gatk=gatk,
+                reference=reference,
+                snp=snp,
+                indel=indel,
+                output=output
+            )) 
+
 def shared_snps_btw_samples(inpufile_list,pathdir):
     '''
     Creates intersections and complements of two or more VCF files. 
@@ -529,7 +571,13 @@ def index(input, output):
     index_bam(input)
 
 @follows(index)
-@transform(link, suffix(".bam"), '.realign.intervals')
+@transform(link, suffix(".bam"), '.dedup.bam')
+def mark_dups(input, output):
+    """Mark dups"""
+    dup_mark_picard(input, output)
+
+@follows(mark_dups)
+@transform(mark_dups, suffix(".dedup.bam"), '.realign.intervals')
 def find_realignment_intervals(bam,output):
    """Find regions to be re-aligned due to indels"""
    find_realigns(bam, output)
@@ -541,66 +589,92 @@ def indel_realigner(input, output, bam):
    run_realigner(bam,input,output)
 
 @follows(indel_realigner)
-@transform(indel_realigner, suffix(".realigned.bam"), '.rmdup.bam')
-def remove_dups(input, output):
-    """Remove dups"""
-    dup_removal_samtools(input, output)
-
-@follows('remove_dups')
-@transform(remove_dups, suffix('.rmdup.bam'), '.gatk.bam.recal_data.csv')
+@transform(indel_realigner, suffix('.realigned.bam'), '.gatk.bam.recal_data.grp')
 def recalibrate_baseq1(input, output):
     """Base quality score recalibration in bam file
         Part 1: count covariates"""
     index_bam(input)
-    count_covariates(input, output)
+    base_recalibrator(input, output)
 
 @follows(recalibrate_baseq1)
-@transform(remove_dups, suffix('.rmdup.bam'), add_inputs(r'\1.gatk.bam.recal_data.csv'),'.gatk.bam')
+@transform(indel_realigner, suffix('.realigned.bam'), add_inputs(r'\1.gatk.bam.recal_data.grp'),'.gatk.bam')
 def recalibrate_baseq2(inputs, output):
     """Base quality score recalibration in bam file
         Part 2: rewrite quality scores into a new bam file"""   
-    table_recalibration(inputs[0], inputs[1], output)
+    print_recalibrated(inputs[0], inputs[1], output)
 
-@follows('recalibrate_baseq2')
-@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.bcf')
-def call_snps(bam, bcf):
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.quality_score')
+def metric_quality_score_distribution(input,output):
+    """docstring for metrics1"""
+    bam_quality_score_distribution(input, output, output + '.pdf')
+
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.metrics')
+def metric_alignment(input,output):
+    """docstring for metrics1"""
+    bam_alignment_metrics(input, output)
+
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.coverage')
+def metric_coverage(input,output):
+    bam_coverage_statistics(input,output)
+
+@jobs_limit(6)
+@follows(recalibrate_baseq2)
+@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.reduced.bam')
+def reduce_bam(input, output):
+    reduce_reads(input,output)
+    
+    
+@follows('reduce_bam')
+@transform(reduce_bam, suffix('.gatk.bam'), '.vcf')
+def call_variants_hc(bam, vcf):
     """Call snps on the data, using samtools"""
-    snp_call_mpileup(bam, bcf)
+    call_variants(bam, vcf)    
+    
 
-@follows('call_snps')
+@follows('call_variants_hc')
 @transform(call_snps, suffix('.bcf'), '.snp.vcf')
 def snps_to_vcf(bcf, vcf):
     """Converts bcf files to snp vcf"""
     bcf_to_snp(bcf,vcf)
 
 @follows('call_snps')
-@transform(call_snps, suffix('.bcf'), '.indel.vcf')
-def indels_to_vcf(bcf, indel):
+@transform(call_snps, suffix('.vcf'), '.indel.vcf')
+def vcf_to_indels(vcf, indel):
     """Converts bcf files to vcf, only indels"""
-    bcf_to_indels(bcf, indel)
+    split_indels(vcf, indel)
+    
+@follows('vcf_to_indels')
+@transform(vcf_to_indels, suffix('.indel.vcf'), '.indel.filtered.vcf')
+def filter_indel_file(vcf, output):
+    """Converts bcf files to vcf, only indels"""
+    filter_indels(vcf, output)
 
-@follows('snps_to_vcf')
-@transform(snps_to_vcf, suffix('.snp.vcf'), '.snp.recode.vcf',r'\1.snp')
-def filter_snps(vcf, snps,extra):
-    """Use vcftools for filtering the vcf output"""
-    snp_filter(vcf, extra)
+@follows('call_snps')
+@transform(call_snps, suffix('.vcf'), '.snp.vcf')
+def vcf_to_snps(vcf, snp):
+    """Converts bcf files to vcf, only indels"""
+    split_snps(vcf, snp)
 
-@follows('indels_to_vcf')
-@transform(indels_to_vcf, suffix('.indel.vcf'), '.indel')
-def filter_indels(vcf, indel_calls):
-    """Use vcftools for filtering the vcf output, indels"""
-    indel_filter(vcf, indel_calls)
+@follows('vcf_to_snps')
+@transform(vcf_to_snps, suffix('.snp.vcf'), '.snp.filtered.vcf')
+def filter_snp_file(vcf, output):
+    """Converts bcf files to vcf, only indels"""
+    filter_snps(vcf, output)
 
-@follows('recalibrate_baseq2')
-@transform(recalibrate_baseq2, suffix('.gatk.bam'), '.gatk.bam.bai')
-def index2(bam, index):
-    index_bam(bam)
+@merge([filter_snp_file, filter_indel_file],'gatk.variants.vcf')
+def merge_variants(filtered,variants):
+    """Merge snp and indel files"""
+    merge_indel_and_snp_vcf(filtered[1],filtered[0],variants)
 
-@follows('filter_snps')
-@transform(filter_snps, suffix('.snp.recode.vcf'), add_inputs(r'\1.gatk.bam'), '.snps')
-def annotate_vcf(inputs, annotated_vcf):
-    """Annotates snp vcf file"""
-    annotate_vcf_gatk(inputs[0], inputs[1], annotated_vcf)
+
+# @follows('filter_snps')
+# @transform(filter_snps, suffix('.snp.recode.vcf'), add_inputs(r'\1.gatk.bam'), '.snps')
+# def annotate_vcf(inputs, annotated_vcf):
+#     """Annotates snp vcf file"""
+#     annotate_vcf_gatk(inputs[0], inputs[1], annotated_vcf)
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
