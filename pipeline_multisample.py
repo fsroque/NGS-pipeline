@@ -588,7 +588,7 @@ def apply_recalibration_indels(vcf,recal,tranches,output):
 #             ))
 
 def cleanup_files():
-    run_cmd("rm -rf */*.recal_data.csv */*.realign* */*.rmdup* */*.log *.log \
+    run_cmd("rm -rf */*.recal_data.csv */*.realign* */*.dedup* */*.log *.log \
             *.to_filter* multisample.gatk.snp.recal batch* \
             multisample.gatk.recalibratedSNPS.rawIndels.vcf \
             multisample.gatk.indel.model.* multisample.gatk.snp.model.* \
@@ -751,7 +751,7 @@ def recalibrate_baseq2(inputs, output):
     """Base quality score recalibration in bam file
         Part 2: rewrite quality scores into a new bam file"""   
     print_recalibrated(inputs[0], inputs[1], output)
-    # remove(inputs[1])
+    # remove(inputs[0])
 
 @follows(recalibrate_baseq2)
 @transform(recalibrate_baseq2, suffix('.gatk.bam'), '.quality_score')
