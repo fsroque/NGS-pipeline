@@ -319,7 +319,7 @@ def call_variants(input, output):
                  -I %s \
                  -stand_emit_conf 10.0 \
                  -L %s \
-                 -o output.raw.snps.indels.vcf \
+                 -o %s \
                  --dbsnp %s " % (gatk, reference, input, exome, output, dbsnp)
     #log the results
     cmd = cmd + '&> {}.log'.format(output)
