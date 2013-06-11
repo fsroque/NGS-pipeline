@@ -24,6 +24,7 @@ import glob
 
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+n_cpus = 2
 #path to binaries
 script_path = os.path.dirname(os.path.realpath(__file__))
 picard = os.path.join(script_path,'../src/picard-tools')
