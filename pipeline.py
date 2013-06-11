@@ -628,7 +628,7 @@ def reduce_bam(input, output):
     
     
 @follows('reduce_bam')
-@transform(reduce_bam, suffix('.gatk.bam'), '.vcf')
+@transform(reduce_bam, suffix('.reduced.bam'), '.vcf')
 def call_variants_hc(bam, vcf):
     """Call snps on the data, using samtools"""
     call_variants(bam, vcf)    
@@ -660,7 +660,7 @@ def filter_snp_file(vcf, output):
 @merge([filter_snp_file, filter_indel_file],'gatk.variants.vcf')
 def merge_variants(filtered,variants):
     """Merge snp and indel files"""
-    merge_indel_and_snp_vcf(filtered[1],filtered[0],variants)
+    merge_indel_and_snp_vcf(filtered[0],filtered[1],variants)
 
 
 # @follows('filter_snps')
