@@ -320,7 +320,7 @@ def call_variants(input, output):
                  -stand_emit_conf 10.0 \
                  -L %s \
                  -o %s \
-                 --dbsnp %s " % (gatk, reference, input, exome, output, dbsnp)
+                 --dbsnp %s " % (gatk, reference, input, capture, output, dbsnp)
     #log the results
     cmd = cmd + '&> {}.log'.format(output)
     run_cmd(cmd)
