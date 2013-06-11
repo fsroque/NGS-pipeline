@@ -438,6 +438,10 @@ def merge_indel_and_snp_vcf(snp,indel, output):
                 indel=indel,
                 output=output
             )) 
+            
+def cleanup_files():
+    run_cmd("rm -rf */*.recal_data.csv */*.realign* */*.dedup* */*.log *.log \
+            ")
 
 def shared_snps_btw_samples(inpufile_list,pathdir):
     '''
@@ -657,6 +661,7 @@ def filter_snp_file(vcf, output):
     """Converts bcf files to vcf, only indels"""
     filter_snps(vcf, output)
 
+@posttask(cleanup_files)
 @merge([filter_snp_file, filter_indel_file],'gatk.variants.vcf')
 def merge_variants(filtered,variants):
     """Merge snp and indel files"""
