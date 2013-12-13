@@ -117,6 +117,9 @@ if __name__ == '__main__':
                         metavar="JOBNAME",
                         type="string",
                         help="Pipeline task(s) which will be included even if they are up to date.")
+    parser.add_option("--rebuild_mode", dest="rebuild_mode",
+                        action="store_false", default=True,
+                        help="gnu_make_maximal_rebuild_mode")
 
     # get help string
     f =StringIO.StringIO()
@@ -663,17 +666,17 @@ def filter_snp_file(vcf, output):
     filter_snps(vcf, output)
 
 @posttask(cleanup_files)
-@merge([filter_snp_file, filter_indel_file],'gatk.variants.vcf')
+@collate([filter_snp_file, filter_indel_file], regex(r"(.+)\..+\.filtered\.vcf"), r'\1.final.variants.vcf')
 def merge_variants(filtered,variants):
     """Merge snp and indel files"""
     merge_indel_and_snp_vcf(filtered[0],filtered[1],variants)
 
-
-# @follows('filter_snps')
-# @transform(filter_snps, suffix('.snp.recode.vcf'), add_inputs(r'\1.gatk.bam'), '.snps')
-# def annotate_vcf(inputs, annotated_vcf):
-#     """Annotates snp vcf file"""
-#     annotate_vcf_gatk(inputs[0], inputs[1], annotated_vcf)
+@jobs_limit(6)
+@follows('merge_variants')
+@transform(merge_variants, suffix('.final.variants.vcf'), add_inputs(r'\1.gatk.bam'), '.final.variants.annotated.vcf')
+def annotate_vcf(inputs, annotated_vcf):
+    """Annotates the vcf file"""
+    variant_annotator(inputs[1], inputs[0], annotated_vcf)
 
 #88888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
@@ -698,5 +701,6 @@ if __name__ == '__main__':
         pipeline_run(options.target_tasks, options.forced_tasks,
                             multiprocess    = options.jobs,
                             logger          = stderr_logger,
-                            verbose         = options.verbose)
+                            verbose         = options.verbose,
+                            gnu_make_maximal_rebuild_mode = options.rebuild_mode)
 
